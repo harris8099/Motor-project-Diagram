@@ -3,36 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Motor System - Architecture Diagrams</title>
+    <meta name="description" content="Interactive architecture documentation for the ESP32 Smart Motor System, featuring real-time diagrams, ML pipelines, and hardware wiring.">
+    <title>Smart Motor System - Architecture</title>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 
         :root {
-            --bg-dark: #0b0d14;
-            --bg-panel: #13161f;
-            --bg-card: #1a1e2e;
+            --bg-dark: #05070a;
+            --bg-panel: #0b0d14;
+            --bg-card: #080a10;
             --accent: #4facfe;
-            --accent-glow: rgba(79,172,254,0.25);
+            --accent-glow: rgba(79,172,254,0.15);
             --text-main: #e2e8f0;
-            --text-muted: #64748b;
+            --text-muted: #8ba3c0;
             --border: #1e2a3a;
+            --border-glow: rgba(79,172,254,0.5);
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
-            font-family: 'Inter', 'Segoe UI', sans-serif;
+            font-family: 'Inter', sans-serif;
             background: var(--bg-dark);
             color: var(--text-main);
             display: flex;
-            min-height: 100vh;
+            height: 100vh;
+            overflow: hidden;
+            scroll-behavior: smooth;
         }
+
+        /* ── Skip to content ── */
+        .skip-link {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            background: var(--accent);
+            color: #000;
+            padding: 8px;
+            z-index: 10000;
+            transition: top 0.2s;
+        }
+        .skip-link:focus { top: 0; }
 
         /* ── Sidebar ── */
         .sidebar {
-            width: 260px;
-            min-width: 260px;
+            width: 280px;
+            min-width: 280px;
             background: var(--bg-panel);
             border-right: 1px solid var(--border);
             padding: 28px 0;
@@ -42,186 +59,493 @@
             overflow-y: auto;
             display: flex;
             flex-direction: column;
+            z-index: 100;
+            transition: transform 0.3s ease;
         }
         .sidebar-brand {
-            padding: 0 22px 24px;
+            padding: 0 24px 24px;
             border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
         }
-        .sidebar-brand h2 {
+        .brand-icon {
+            width: 32px;
+            height: 32px;
+            background: rgba(79,172,254,0.1);
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent);
+        }
+        .sidebar-brand-text h2 {
             font-size: 0.95rem;
             font-weight: 600;
-            color: var(--accent);
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
+            color: var(--text-main);
+            letter-spacing: 0.02em;
         }
-        .sidebar-brand p {
+        .sidebar-brand-text p {
             font-size: 0.75rem;
             color: var(--text-muted);
             margin-top: 4px;
         }
-        .nav-list { padding: 16px 0; }
+        .sidebar-brand-text .badge {
+            display: inline-block;
+            margin-top: 8px;
+            font-size: 0.65rem;
+            padding: 2px 6px;
+            background: var(--accent-glow);
+            color: var(--accent);
+            border-radius: 4px;
+            border: 1px solid rgba(79,172,254,0.3);
+        }
+        .nav-list { padding: 16px 0; position: relative; }
+        
+        /* Progress Track */
+        .progress-track {
+            position: absolute;
+            left: 0;
+            top: 16px;
+            bottom: 16px;
+            width: 3px;
+            background: var(--border);
+        }
+        .progress-indicator {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 3px;
+            background: var(--accent);
+            height: 38px;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
         .nav-link {
             display: block;
-            padding: 9px 22px;
+            padding: 10px 24px 10px 28px;
             font-size: 0.85rem;
             color: var(--text-muted);
             text-decoration: none;
-            border-left: 3px solid transparent;
-            transition: all 0.18s ease;
+            transition: all 0.2s ease;
+            position: relative;
         }
-        .nav-link:hover, .nav-link.active {
+        .nav-link:hover {
             color: var(--text-main);
-            background: rgba(79,172,254,0.07);
-            border-left-color: var(--accent);
+            background: rgba(79,172,254,0.05);
+        }
+        .nav-link.active {
+            color: #fff;
+            background: linear-gradient(90deg, rgba(79,172,254,0.15) 0%, transparent 100%);
+            font-weight: 500;
+        }
+
+        /* ── Mobile Header & Toggle ── */
+        .mobile-header {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: var(--bg-panel);
+            border-bottom: 1px solid var(--border);
+            z-index: 99;
+            align-items: center;
+            padding: 0 20px;
+            justify-content: space-between;
+        }
+        .mobile-toggle {
+            background: none;
+            border: none;
+            color: var(--text-main);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 98;
+            opacity: 0;
+            transition: opacity 0.3s;
         }
 
         /* ── Main Content ── */
         .main {
             flex: 1;
-            padding: 48px 52px;
+            padding: 64px 80px;
             overflow-y: auto;
+            position: relative;
         }
-        .page-header { margin-bottom: 48px; }
-        .page-header h1 {
-            font-size: 2rem;
+        /* Body Glow */
+        .main::before {
+            content: '';
+            position: fixed;
+            top: -20%; right: -10%;
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(79,172,254,0.03) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        /* ── Hero Section ── */
+        .hero {
+            margin-bottom: 64px;
+            position: relative;
+            padding: 40px;
+            border-radius: 16px;
+            background: url('data:image/svg+xml;utf8,<svg width="20" height="20" xmlns="http://www.w3.org/2000/svg"><circle cx="2" cy="2" r="1" fill="rgba(255,255,255,0.05)"/></svg>') repeat;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(ellipse at top left, rgba(79,172,254,0.1) 0%, transparent 60%);
+            pointer-events: none;
+        }
+        .hero-badges { margin-bottom: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+        .hero-badges span {
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: var(--text-muted);
+        }
+        .hero h1 {
+            font-size: 2.8rem;
             font-weight: 600;
-            background: linear-gradient(90deg, #4facfe, #00f2fe);
+            background: linear-gradient(90deg, #fff, #4facfe);
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
-            color: transparent;
+            margin-bottom: 12px;
+            line-height: 1.1;
         }
-        .page-header p {
+        .hero p {
             color: var(--text-muted);
-            margin-top: 8px;
-            font-size: 0.9rem;
+            font-size: 1.1rem;
+            max-width: 600px;
         }
+        .hero-stats {
+            margin-top: 24px;
+            display: flex;
+            gap: 24px;
+            padding-top: 24px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+        .stat-item { display: flex; flex-direction: column; }
+        .stat-item .val { color: var(--accent); font-weight: 600; font-size: 1.2rem; }
+        .stat-item .lbl { color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
 
         /* ── Diagram Section ── */
-        .diagram-section { margin-bottom: 64px; }
+        .diagram-section { 
+            margin-bottom: 80px; 
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+            scroll-margin-top: 90px;
+        }
+        .diagram-section.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
         .diagram-header {
+            margin-bottom: 24px;
+        }
+        .diagram-title-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 18px;
-            padding-bottom: 14px;
-            border-bottom: 1px solid var(--border);
+            margin-bottom: 8px;
         }
-        .diagram-header h3 {
-            font-size: 1.15rem;
+        .diagram-title-row h3 {
+            font-size: 1.25rem;
             font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .diagram-icon { color: var(--accent); }
+        .diagram-actions { display: flex; gap: 8px; }
+        .action-btn {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .action-btn:hover {
+            color: var(--text-main);
+            border-color: var(--accent);
+            background: rgba(79,172,254,0.05);
+        }
+        .diagram-desc {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            line-height: 1.5;
         }
 
-
-        /* ── Diagram Box ── */
+        /* ── Deep-Space Dark Cards ── */
         .diagram-box {
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 28px 20px;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.4);
-            overflow: visible; /* no scroll trapping */
+            border-top: 1px solid var(--border-glow);
+            border-radius: 16px;
+            padding: 32px 24px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.8), inset 0 1px 0 rgba(79,172,254,0.15);
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            transition: box-shadow 0.3s ease;
+            /* Star texture */
+            background-image: 
+                radial-gradient(1px 1px at 20px 30px, rgba(255,255,255,0.1), transparent),
+                radial-gradient(1px 1px at 40px 70px, rgba(255,255,255,0.1), transparent),
+                radial-gradient(1.5px 1.5px at 90px 40px, rgba(255,255,255,0.15), transparent);
+            background-size: 100px 100px;
+        }
+        /* Nebula glow */
+        .diagram-box::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 300px; height: 300px;
+            background: radial-gradient(ellipse at top left, rgba(79,172,254,0.06) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .diagram-box:hover {
+            box-shadow: 0 12px 50px rgba(0,0,0,0.9), inset 0 1px 0 rgba(79,172,254,0.3);
+        }
+        
+        .diagram-box .mermaid-target {
+            position: relative;
+            z-index: 1;
             width: 100%;
         }
-        /* Make mermaid SVGs fill naturally */
         .diagram-box svg {
             width: 100% !important;
             height: auto !important;
             display: block;
         }
 
-        /* ── Mermaid Node Style Overrides ── */
-        .mermaid-target { width: 100%; }
-
-        /* Edge label boxes */
-        .edgeLabel { background: transparent !important; }
-        .edgeLabel rect {
-            fill: #13161f !important;
-            stroke: #2a3a5a !important;
-            stroke-width: 1px !important;
-            opacity: 1 !important;
-            rx: 4px !important;
+        /* Loading Skeleton */
+        .skeleton {
+            width: 100%;
+            height: 300px;
+            background: linear-gradient(90deg, #0b0d14 25%, #13161f 50%, #0b0d14 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+            border-radius: 8px;
         }
-        .edgeLabel span, .edgeLabel p {
-            background: #13161f !important;
-            color: #93c5fd !important;
-            font-size: 0.7rem !important;
-            font-family: 'Inter', sans-serif !important;
-            padding: 1px 4px !important;
-            border-radius: 3px !important;
-        }
+        @keyframes loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
-        /* ── Hover Tooltip ── */
+        /* ── Fullscreen Modal ── */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(5,7,10,0.95);
+            z-index: 10000;
+            padding: 40px;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            width: 100%;
+            max-width: 1200px;
+            max-height: 90vh;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 30px;
+            overflow: auto;
+            position: relative;
+            box-shadow: 0 20px 80px rgba(0,0,0,1);
+        }
+        .modal-close {
+            position: absolute;
+            top: 16px; right: 20px;
+            background: none; border: none;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        .modal-close:hover { color: #fff; }
+
+        /* ── Mermaid Overrides ── */
+        .edgeLabel rect { fill: #0b0d14 !important; stroke: #1e2a3a !important; stroke-width: 1px !important; opacity: 1 !important; rx: 4px !important; }
+        .edgeLabel span, .edgeLabel p { background: #0b0d14 !important; color: #8ba3c0 !important; font-size: 0.7rem !important; font-family: 'Inter', sans-serif !important; padding: 2px 6px !important; border-radius: 4px !important; }
+
+        /* ── Tooltip ── */
         #tooltip {
             position: fixed;
             z-index: 9999;
             pointer-events: none;
-            background: #13161f;
-            border: 1px solid var(--accent);
-            border-left: 3px solid var(--accent);
-            border-radius: 8px;
-            padding: 10px 14px;
-            width: 220px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 12px var(--accent-glow);
+            background: rgba(8,10,16,0.95);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border);
+            border-top: 2px solid var(--accent);
+            border-radius: 10px;
+            padding: 14px 16px;
+            width: 260px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8), 0 0 15px rgba(79,172,254,0.1);
             opacity: 0;
-            transition: opacity 0.15s ease;
+            transform: scale(0.95);
+            transition: opacity 0.2s ease, transform 0.2s ease;
             font-size: 0.8rem;
         }
-        #tooltip.visible { opacity: 1; }
-        #tooltip h4 {
-            color: var(--accent);
-            font-size: 0.85rem;
-            margin-bottom: 6px;
-        }
+        #tooltip.visible { opacity: 1; transform: scale(1); }
+        #tooltip.pinned { pointer-events: auto; border-top-color: #00f2fe; }
+        .tt-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .tt-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .tt-dot.edge { background: #f59e0b; box-shadow: 0 0 8px rgba(245,158,11,0.5); }
+        .tt-dot.cloud { background: #4facfe; box-shadow: 0 0 8px rgba(79,172,254,0.5); }
+        .tt-dot.ai { background: #c084fc; box-shadow: 0 0 8px rgba(192,132,252,0.5); }
+        
+        #tooltip h4 { color: #fff; font-size: 0.9rem; flex: 1; }
+        .tt-pin-hint { font-size: 0.65rem; color: #64748b; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 10px; display: none; }
+        #tooltip.visible:not(.pinned) .tt-pin-hint { display: block; }
+        .tt-close { display: none; background: none; border: none; color: #fff; cursor: pointer; font-size: 1rem; line-height: 1; }
+        #tooltip.pinned .tt-close { display: block; }
+
+        .tt-desc { color: var(--text-muted); font-size: 0.75rem; margin-bottom: 12px; line-height: 1.4; }
         #tooltip .spec-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 3px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.04);
-            color: var(--text-muted);
-            gap: 8px;
+            display: flex; justify-content: space-between; padding: 4px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.03); color: var(--text-muted);
         }
         #tooltip .spec-row:last-child { border: none; }
-        #tooltip .spec-row strong { color: var(--text-main); white-space: nowrap; }
+        #tooltip .spec-row strong { color: #cbd5e1; font-weight: 500; }
         #tooltip .spec-row span { text-align: right; }
+
+        /* ── Responsive ── */
+        @media (max-width: 1024px) {
+            .main { padding: 40px; }
+        }
+        @media (max-width: 768px) {
+            .mobile-header { display: flex; }
+            .sidebar {
+                position: fixed;
+                transform: translateX(-100%);
+            }
+            .sidebar.open { transform: translateX(0); }
+            .sidebar-overlay.open { display: block; opacity: 1; }
+            .main { padding: 90px 20px 40px; }
+            .hero h1 { font-size: 2rem; }
+            .hero-stats { flex-wrap: wrap; }
+            .diagram-box { padding: 20px 10px; overflow-x: auto; }
+            .diagram-box svg { min-width: 600px; }
+            .diagram-title-row { flex-direction: column; align-items: flex-start; gap: 12px; }
+        }
     </style>
 </head>
 <body>
 
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
 <!-- Floating Tooltip -->
-<div id="tooltip"></div>
+<div id="tooltip" role="tooltip" aria-live="polite">
+    <div class="tt-header">
+        <div class="tt-dot" id="tt-dot"></div>
+        <h4 id="tt-title">Title</h4>
+        <span class="tt-pin-hint">Click to pin</span>
+        <button class="tt-close" id="tt-close" aria-label="Close tooltip">&times;</button>
+    </div>
+    <div class="tt-desc" id="tt-desc">Description</div>
+    <div id="tt-specs"></div>
+</div>
+
+<!-- Fullscreen Modal -->
+<div class="modal" id="fs-modal" aria-hidden="true" role="dialog">
+    <div class="modal-content">
+        <button class="modal-close" id="fs-close" aria-label="Close fullscreen">&times;</button>
+        <div id="fs-target"></div>
+    </div>
+</div>
+
+<!-- Mobile Header -->
+<header class="mobile-header">
+    <div class="sidebar-brand-text" style="display:flex; align-items:center; gap:10px;">
+        <div class="brand-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+        <h2 style="margin:0;font-size:1rem;">Smart Motor System</h2>
+    </div>
+    <button class="mobile-toggle" id="mobile-toggle" aria-label="Toggle Navigation">☰</button>
+</header>
+<div class="sidebar-overlay" id="sidebar-overlay"></div>
 
 <!-- Sidebar -->
-<nav class="sidebar">
+<nav class="sidebar" id="sidebar" aria-label="Main Navigation">
     <div class="sidebar-brand">
-        <h2>Smart Motor System</h2>
-        <p>Architecture Documentation</p>
+        <div class="brand-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg>
+        </div>
+        <div class="sidebar-brand-text">
+            <h2>Smart Motor System</h2>
+            <p>Architecture Docs</p>
+            <span class="badge">8 Diagrams</span>
+        </div>
     </div>
     <div class="nav-list">
-        <a class="nav-link" href="#sys-arch">1. System Architecture</a>
-        <a class="nav-link" href="#data-flow">2. Data Flow</a>
-        <a class="nav-link" href="#hw-wiring">3. Hardware Wiring</a>
-        <a class="nav-link" href="#firmware">4. Firmware Tasks</a>
-        <a class="nav-link" href="#protection">5. Protection Flow</a>
-        <a class="nav-link" href="#ml-pipe">6. ML Pipeline</a>
-        <a class="nav-link" href="#db-schema">7. Database Schema</a>
-        <a class="nav-link" href="#frontend">8. Frontend Architecture</a>
+        <div class="progress-track"></div>
+        <div class="progress-indicator" id="nav-indicator"></div>
+        <a class="nav-link active" href="#sys-arch" data-index="0">1. System Architecture</a>
+        <a class="nav-link" href="#data-flow" data-index="1">2. Data Flow</a>
+        <a class="nav-link" href="#hw-wiring" data-index="2">3. Hardware Wiring</a>
+        <a class="nav-link" href="#firmware" data-index="3">4. Firmware Tasks</a>
+        <a class="nav-link" href="#protection" data-index="4">5. Protection Flow</a>
+        <a class="nav-link" href="#ml-pipe" data-index="5">6. ML Pipeline</a>
+        <a class="nav-link" href="#db-schema" data-index="6">7. Database Schema</a>
+        <a class="nav-link" href="#frontend" data-index="7">8. Frontend Architecture</a>
     </div>
 </nav>
 
 <!-- Main -->
-<main class="main" id="main-scroll">
-    <div class="page-header">
-        <h1>Architecture Diagrams</h1>
-        <p>Hover over diagram nodes to see technical details. Scroll freely through all diagrams.</p>
-    </div>
-
-    <section id="sys-arch" class="diagram-section">
-        <div class="diagram-header">
-            <h3>1. High-Level System Architecture</h3>
+<main class="main" id="main-content" role="main">
+    
+    <section class="hero">
+        <div class="hero-badges">
+            <span>v2.0 Architecture</span>
+            <span>Edge + Cloud + AI</span>
+            <span>Auto-generated</span>
         </div>
-        <div class="diagram-box" id="box-1">
-            <div class="mermaid-src" style="display:none">
+        <h1>ESP32 Smart Motor System</h1>
+        <p>Interactive technical documentation. Explore the integration between edge sensors, FreeRTOS firmware, fast cloud backends, and AI diagnostic pipelines.</p>
+        <div class="hero-stats">
+            <div class="stat-item"><span class="val">4</span><span class="lbl">Edge Sensors</span></div>
+            <div class="stat-item"><span class="val">5</span><span class="lbl">RTOS Tasks</span></div>
+            <div class="stat-item"><span class="val">3</span><span class="lbl">AI Models</span></div>
+            <div class="stat-item"><span class="val">8</span><span class="lbl">Diagrams</span></div>
+        </div>
+    </section>
+
+    <!-- Diagram 1 -->
+    <section id="sys-arch" class="diagram-section" aria-labelledby="h-sys-arch">
+        <div class="diagram-header">
+            <div class="diagram-title-row">
+                <h3 id="h-sys-arch"><span class="diagram-icon">🔷</span> 1. High-Level System Architecture</h3>
+                <div class="diagram-actions">
+                    <button class="action-btn copy-btn" data-target="src-1">📋 Copy Source</button>
+                    <button class="action-btn fs-btn" data-target="render-1">🪟 Fullscreen</button>
+                </div>
+            </div>
+            <p class="diagram-desc">Overview of the physical and logical boundaries spanning the ESP32 edge device, Render backend, Neon database, and Vercel frontend.</p>
+        </div>
+        <div class="diagram-box">
+            <div class="skeleton" id="skel-1"></div>
+            <pre class="mermaid-src" id="src-1" style="display:none">
 graph TB
     subgraph EDGE["Edge Layer - ESP32"]
         PZEM["PZEM-004T"] --> ESP["ESP32-WROOM-32"]
@@ -251,17 +575,26 @@ graph TB
     API --"asyncpg SSL"--> PG
     RCT --"REST API"--> API
     ML --"Fallback Chain"--> MST
-            </div>
+            </pre>
             <div class="mermaid-target" id="render-1"></div>
         </div>
     </section>
 
-    <section id="data-flow" class="diagram-section">
+    <!-- Diagram 2 -->
+    <section id="data-flow" class="diagram-section" aria-labelledby="h-data-flow">
         <div class="diagram-header">
-            <h3>2. Data Flow: ESP32 → Render → Neon → Vercel</h3>
+            <div class="diagram-title-row">
+                <h3 id="h-data-flow"><span class="diagram-icon">🔁</span> 2. Data Flow Sequence</h3>
+                <div class="diagram-actions">
+                    <button class="action-btn copy-btn" data-target="src-2">📋 Copy Source</button>
+                    <button class="action-btn fs-btn" data-target="render-2">🪟 Fullscreen</button>
+                </div>
+            </div>
+            <p class="diagram-desc">Chronological sequence of data transmission from edge telemetry to cloud storage, background ML processing, and UI presentation.</p>
         </div>
-        <div class="diagram-box" id="box-2">
-            <div class="mermaid-src" style="display:none">
+        <div class="diagram-box">
+            <div class="skeleton" id="skel-2"></div>
+            <pre class="mermaid-src" id="src-2" style="display:none">
 sequenceDiagram
     participant ESP as ESP32 (Edge)
     participant RND as Render.com (FastAPI)
@@ -287,19 +620,28 @@ sequenceDiagram
     RND-->>VRC: JSON response
     VRC->>RND: POST /ai/analyze/{id}
     RND-->>VRC: AI commentary
-            </div>
+            </pre>
             <div class="mermaid-target" id="render-2"></div>
         </div>
     </section>
 
+    <!-- Diagram 3 -->
     <section id="hw-wiring" class="diagram-section">
         <div class="diagram-header">
-            <h3>3. Hardware Wiring Diagram</h3>
+            <div class="diagram-title-row">
+                <h3><span class="diagram-icon">🔌</span> 3. Hardware Wiring Diagram</h3>
+                <div class="diagram-actions">
+                    <button class="action-btn copy-btn" data-target="src-3">📋 Copy Source</button>
+                    <button class="action-btn fs-btn" data-target="render-3">🪟 Fullscreen</button>
+                </div>
+            </div>
+            <p class="diagram-desc">Physical connections between the ESP32 microcontroller, sensors, and the AC mains power relay.</p>
         </div>
-        <div class="diagram-box" id="box-3">
-            <div class="mermaid-src" style="display:none">
+        <div class="diagram-box">
+            <div class="skeleton" id="skel-3"></div>
+            <pre class="mermaid-src" id="src-3" style="display:none">
 graph LR
-    MAINS["230V AC Mains"] --> RLY["Relay (GPIO26)"]
+    MAINS["230V AC Mains"] --> RLY["Relay"]
     RLY --> MTR["Induction Motor"]
     MTR --> PZ["PZEM-004T"]
     PZ -->|"UART2 GPIO17/16"| CPU["ESP32-WROOM-32"]
@@ -308,18 +650,27 @@ graph LR
     HS["Hall Sensor"] -->|"GPIO Interrupt"| CPU
     CPU -->|"Active Low"| RLY
     CPU -->|"GPIO27"| BUZ["Buzzer"]
-    CPU -->|"SPI"| TFT["TFT LCD"]
-            </div>
+    CPU -->|"SPI"| TFT["TFT Display"]
+            </pre>
             <div class="mermaid-target" id="render-3"></div>
         </div>
     </section>
 
+    <!-- Diagram 4 -->
     <section id="firmware" class="diagram-section">
         <div class="diagram-header">
-            <h3>4. ESP32 Firmware Task Architecture (FreeRTOS)</h3>
+            <div class="diagram-title-row">
+                <h3><span class="diagram-icon">⚙️</span> 4. ESP32 Firmware Task Architecture</h3>
+                <div class="diagram-actions">
+                    <button class="action-btn copy-btn" data-target="src-4">📋 Copy Source</button>
+                    <button class="action-btn fs-btn" data-target="render-4">🪟 Fullscreen</button>
+                </div>
+            </div>
+            <p class="diagram-desc">Internal FreeRTOS thread model showing task priorities and shared state synchronization via mutexes.</p>
         </div>
-        <div class="diagram-box" id="box-4">
-            <div class="mermaid-src" style="display:none">
+        <div class="diagram-box">
+            <div class="skeleton" id="skel-4"></div>
+            <pre class="mermaid-src" id="src-4" style="display:none">
 graph TB
     subgraph TASKS["FreeRTOS Tasks"]
         T1["sensor_data P4"]
@@ -342,17 +693,26 @@ graph TB
     T5 --> GD
     T6 --> GD
     T8 --> GD
-            </div>
+            </pre>
             <div class="mermaid-target" id="render-4"></div>
         </div>
     </section>
 
+    <!-- Diagram 5 -->
     <section id="protection" class="diagram-section">
         <div class="diagram-header">
-            <h3>5. Motor Protection Signal Flow</h3>
+            <div class="diagram-title-row">
+                <h3><span class="diagram-icon">🛡️</span> 5. Motor Protection Signal Flow</h3>
+                <div class="diagram-actions">
+                    <button class="action-btn copy-btn" data-target="src-5">📋 Copy Source</button>
+                    <button class="action-btn fs-btn" data-target="render-5">🪟 Fullscreen</button>
+                </div>
+            </div>
+            <p class="diagram-desc">Local safety logic executing on the ESP32 to autonomously shut down the motor during fault conditions.</p>
         </div>
-        <div class="diagram-box" id="box-5">
-            <div class="mermaid-src" style="display:none">
+        <div class="diagram-box">
+            <div class="skeleton" id="skel-5"></div>
+            <pre class="mermaid-src" id="src-5" style="display:none">
 flowchart TD
     READ["Read Sensor Data"] --> GRACE{"Startup Grace?"}
     GRACE -->|Yes| SUPPRESS["Suppress faults"]
@@ -374,17 +734,26 @@ flowchart TD
     NVS --> COUNT{"fault_count gte trip?"}
     COUNT -->|Yes| TRIP["Relay OFF - Motor Stopped"]
     COUNT -->|No| CONT["Continue Running"]
-            </div>
+            </pre>
             <div class="mermaid-target" id="render-5"></div>
         </div>
     </section>
 
+    <!-- Diagram 6 -->
     <section id="ml-pipe" class="diagram-section">
         <div class="diagram-header">
-            <h3>6. ML Prediction Pipeline</h3>
+            <div class="diagram-title-row">
+                <h3><span class="diagram-icon">🧠</span> 6. ML Prediction Pipeline</h3>
+                <div class="diagram-actions">
+                    <button class="action-btn copy-btn" data-target="src-6">📋 Copy Source</button>
+                    <button class="action-btn fs-btn" data-target="render-6">🪟 Fullscreen</button>
+                </div>
+            </div>
+            <p class="diagram-desc">Tiered cloud analysis combining classical rule-based checks, Sklearn models, and generative AI fallback chains.</p>
         </div>
-        <div class="diagram-box" id="box-6">
-            <div class="mermaid-src" style="display:none">
+        <div class="diagram-box">
+            <div class="skeleton" id="skel-6"></div>
+            <pre class="mermaid-src" id="src-6" style="display:none">
 flowchart TD
     IN["Sensor Payload Received"] --> DISP["enqueue_prediction_job"]
     DISP --> MODE{"PREDICTION_MODE"}
@@ -401,17 +770,26 @@ flowchart TD
     M1 --> OUT["Expert Commentary / RUL JSON"]
     M2 --> OUT
     M3 --> OUT
-            </div>
+            </pre>
             <div class="mermaid-target" id="render-6"></div>
         </div>
     </section>
 
+    <!-- Diagram 7 -->
     <section id="db-schema" class="diagram-section">
         <div class="diagram-header">
-            <h3>7. Database Schema (Neon PostgreSQL)</h3>
+            <div class="diagram-title-row">
+                <h3><span class="diagram-icon">🗄️</span> 7. Database Schema</h3>
+                <div class="diagram-actions">
+                    <button class="action-btn copy-btn" data-target="src-7">📋 Copy Source</button>
+                    <button class="action-btn fs-btn" data-target="render-7">🪟 Fullscreen</button>
+                </div>
+            </div>
+            <p class="diagram-desc">Relational entity model hosted on Neon Serverless PostgreSQL.</p>
         </div>
-        <div class="diagram-box" id="box-7">
-            <div class="mermaid-src" style="display:none">
+        <div class="diagram-box">
+            <div class="skeleton" id="skel-7"></div>
+            <pre class="mermaid-src" id="src-7" style="display:none">
 erDiagram
     devices ||--o{ sensor_readings : "generates"
     devices ||--o{ predictions : "has"
@@ -449,17 +827,26 @@ erDiagram
         TEXT command
         TEXT status
     }
-            </div>
+            </pre>
             <div class="mermaid-target" id="render-7"></div>
         </div>
     </section>
 
+    <!-- Diagram 8 -->
     <section id="frontend" class="diagram-section">
         <div class="diagram-header">
-            <h3>8. Frontend Dashboard Architecture (React)</h3>
+            <div class="diagram-title-row">
+                <h3><span class="diagram-icon">💻</span> 8. Frontend Dashboard Architecture</h3>
+                <div class="diagram-actions">
+                    <button class="action-btn copy-btn" data-target="src-8">📋 Copy Source</button>
+                    <button class="action-btn fs-btn" data-target="render-8">🪟 Fullscreen</button>
+                </div>
+            </div>
+            <p class="diagram-desc">Component hierarchy for the React 19 SPA deployed on Vercel.</p>
         </div>
-        <div class="diagram-box" id="box-8">
-            <div class="mermaid-src" style="display:none">
+        <div class="diagram-box">
+            <div class="skeleton" id="skel-8"></div>
+            <pre class="mermaid-src" id="src-8" style="display:none">
 graph TB
     APP["App.jsx Auth Guard"] --> HOME["Home.jsx Device List"]
     HOME --> DEV["DeviceLayout.jsx Tab Shell"]
@@ -471,7 +858,7 @@ graph TB
     DEV --> AI["AIPage.jsx"]
     DEV --> ST["SettingsPage.jsx"]
     DEV --> TM["TerminalPage.jsx"]
-            </div>
+            </pre>
             <div class="mermaid-target" id="render-8"></div>
         </div>
     </section>
@@ -491,171 +878,315 @@ mermaid.initialize({
     securityLevel: 'loose'
 });
 
-// ── Node Knowledge Base ──
+// ── Enhanced Knowledge Base ──
 const KB = {
-    'PZEM-004T':          { desc:'Electrical power measurement module', specs:{ Interface:'UART2 (GPIO17/16)', Voltage:'80–260V AC', Current:'0–100A', Metrics:'Power, Energy, PF, Hz' } },
-    'DS18B20':            { desc:'Digital motor temperature sensor', specs:{ Protocol:'1-Wire', Range:'-55 to +125°C', Resolution:'0.0625°C' } },
-    'ADXL345':            { desc:'3-axis accelerometer + tap detection', specs:{ Protocol:'I2C (SDA/SCL)', Range:'±16g', Resolution:'3.9 mg/LSB', Feature:'Tap Detection' } },
-    'Hall Sensor':        { desc:'RPM measurement via magnetic pulses', specs:{ Output:'GPIO Interrupt', Measurement:'Pulse-counted RPM' } },
-    'ESP32-WROOM-32':     { desc:'Main edge microcontroller', specs:{ Core:'Dual Xtensa LX6', Clock:'240 MHz', Flash:'4MB', RAM:'520KB', OS:'FreeRTOS' } },
-    'Relay':              { desc:'Motor power switch', specs:{ GPIO:'GPIO26', Logic:'Active Low', Type:'Electromechanical' } },
-    'FastAPI Backend':    { desc:'Cloud REST API server on Render.com', specs:{ Framework:'FastAPI (Python)', Server:'Uvicorn (ASGI)', Hosting:'Render.com' } },
-    'PostgreSQL 16':      { desc:'Managed cloud database', specs:{ Provider:'Neon.tech', Driver:'asyncpg', Security:'SSL Required', Pool:'size=5, recycle=300s' } },
-    'Mistral AI':         { desc:'Primary generative AI provider', specs:{ Model:'mistral-small', Role:'Expert diagnostics', Fallback:'2nd → Gemini' } },
-    'Google Gemini':      { desc:'Secondary AI fallback provider', specs:{ Model:'gemini-2.0-flash', Trigger:'Mistral failure', Fallback:'3rd → Groq' } },
-    'Groq':               { desc:'Tertiary AI fallback provider', specs:{ Model:'llama-3.3-70b-versatile', Trigger:'Gemini failure' } },
-    'React 19 Dashboard': { desc:'Frontend SPA on Vercel', specs:{ Framework:'React 19 + Vite 8', Hosting:'Vercel', Charts:'Chart.js', Icons:'Lucide React' } },
-    'Isolation Forest':   { desc:'Sklearn anomaly detection model', specs:{ Library:'sklearn.ensemble', contamination:'0.1', seed:'42', Tier:'Tier 2 ML' } },
-    'NASA BHI':           { desc:'NASA Bearing Health Index calculation', specs:{ Metrics:'RMS, Crest Factor, Kurtosis, FFT', Library:'scipy.stats + numpy.fft', Tier:'Tier 4 Advanced ML' } },
+    // Edge Hardware
+    'PZEM-004T':          { layer: 'edge', desc:'Electrical power measurement module', specs:{ Interface:'UART2 (GPIO17/16)', Voltage:'80–260V AC', Current:'0–100A', Metrics:'Power, Energy, PF, Hz' } },
+    'DS18B20':            { layer: 'edge', desc:'Digital motor temperature sensor', specs:{ Protocol:'1-Wire', Range:'-55 to +125°C', Resolution:'0.0625°C' } },
+    'ADXL345':            { layer: 'edge', desc:'3-axis accelerometer + tap detection', specs:{ Protocol:'I2C (SDA/SCL)', Range:'±16g', Feature:'Tap Detection' } },
+    'Hall Sensor':        { layer: 'edge', desc:'RPM measurement via magnetic pulses', specs:{ Output:'GPIO Interrupt', Measurement:'Pulse-counted RPM' } },
+    'ESP32-WROOM-32':     { layer: 'edge', desc:'Main edge microcontroller', specs:{ Core:'Dual Xtensa LX6', Clock:'240 MHz', OS:'FreeRTOS' } },
+    'Relay':              { layer: 'edge', desc:'Motor power switch for safety cutoff', specs:{ GPIO:'GPIO26', Logic:'Active Low', Rating:'10A 250VAC' } },
+    'Buzzer':             { layer: 'edge', desc:'Audible alarm for fault conditions', specs:{ GPIO:'GPIO27', Type:'Active Buzzer' } },
+    'TFT Display':        { layer: 'edge', desc:'Local status screen (ILI9341)', specs:{ Protocol:'SPI', Resolution:'320x240', Driver:'TFT_eSPI' } },
+    'FreeRTOS Tasks':     { layer: 'edge', desc:'Real-time operating system scheduler', specs:{ Tasks:'8 Active Threads', Sync:'Mutex / Spinlocks', Preemption:'Enabled' } },
+    
+    // Cloud
+    'FastAPI Backend':    { layer: 'cloud', desc:'Cloud REST API server', specs:{ Framework:'FastAPI (Python)', Server:'Uvicorn (ASGI)', Hosting:'Render.com' } },
+    'Render.com':         { layer: 'cloud', desc:'PaaS provider for backend hosting', specs:{ Instance:'Web Service', AutoDeploy:'GitHub Actions' } },
+    'PostgreSQL 16':      { layer: 'cloud', desc:'Managed relational database', specs:{ Provider:'Neon.tech', Driver:'asyncpg', Security:'SSL Required' } },
+    'Neon':               { layer: 'cloud', desc:'Serverless Postgres provider', specs:{ Architecture:'Compute/Storage separation', Scaling:'Auto-suspend' } },
+    'Background Worker':  { layer: 'cloud', desc:'Async job queue processor', specs:{ Library:'rq / Celery', Role:'ML execution, Data crunching' } },
+    'Background Tasks':   { layer: 'cloud', desc:'Async job queue processor', specs:{ Library:'rq / Celery', Role:'ML execution, Data crunching' } },
+    
+    // Frontend
+    'React 19 Dashboard': { layer: 'cloud', desc:'Frontend Single Page Application', specs:{ Framework:'React 19', Build:'Vite 8', Hosting:'Vercel' } },
+    'Vercel':             { layer: 'cloud', desc:'Edge network for frontend hosting', specs:{ Deployment:'Serverless Edge', CI_CD:'Automatic' } },
+    
+    // AI / ML
+    'Mistral AI':         { layer: 'ai', desc:'Primary generative AI provider', specs:{ Model:'mistral-small', Role:'Expert diagnostics' } },
+    'Google Gemini':      { layer: 'ai', desc:'Secondary AI fallback provider', specs:{ Model:'gemini-2.0-flash', Trigger:'Mistral failure' } },
+    'Groq':               { layer: 'ai', desc:'Tertiary AI fallback provider', specs:{ Model:'llama-3.3-70b', Trigger:'Gemini failure' } },
+    'Isolation Forest':   { layer: 'ai', desc:'Sklearn anomaly detection model', specs:{ Library:'sklearn.ensemble', contamination:'0.1', Tier:'Tier 2 ML' } },
+    'NASA BHI':           { layer: 'ai', desc:'Bearing Health Index calculation', specs:{ Metrics:'RMS, Crest Factor, Kurtosis', Tier:'Tier 4 ML' } },
+    'ML Pipeline':        { layer: 'ai', desc:'Tiered diagnostic system', specs:{ Tiers:'4 Levels', Execution:'Async Worker' } },
 };
 
 function lookupNode(text) {
-    const clean = text.replace(/[⚙️☁️🗄️🖥️🤖\n]/g, '').trim();
+    const clean = text.replace(/[⚙️☁️🗄️🖥️🤖🔌🛡️🧠🔁\n]/g, '').trim();
     if (KB[clean]) return { title: clean, ...KB[clean] };
     const key = Object.keys(KB).find(k => clean.includes(k));
     if (key) return { title: key, ...KB[key] };
     return null;
 }
 
-// ── Tooltip ──
+// ── Tooltip Logic ──
 const tooltip = document.getElementById('tooltip');
+const ttTitle = document.getElementById('tt-title');
+const ttDesc = document.getElementById('tt-desc');
+const ttSpecs = document.getElementById('tt-specs');
+const ttDot = document.getElementById('tt-dot');
+const ttClose = document.getElementById('tt-close');
+
 let hideTimer;
+let isPinned = false;
 
 function showTooltip(x, y, data) {
+    if (isPinned) return; // Don't override if pinned
     clearTimeout(hideTimer);
-    let html = `<h4>${data.title}</h4><p style="color:#64748b;font-size:0.75rem;margin-bottom:6px">${data.desc}</p>`;
+    
+    ttTitle.textContent = data.title;
+    ttDesc.textContent = data.desc;
+    
+    ttDot.className = `tt-dot ${data.layer || 'edge'}`;
+    
+    let specsHtml = '';
     for (const [k, v] of Object.entries(data.specs)) {
-        html += `<div class="spec-row"><strong>${k}</strong><span>${v}</span></div>`;
+        specsHtml += `<div class="spec-row"><strong>${k}</strong><span>${v}</span></div>`;
     }
-    tooltip.innerHTML = html;
-    tooltip.style.left = (x + 14) + 'px';
+    ttSpecs.innerHTML = specsHtml;
+    
+    // Position constraint
+    const winW = window.innerWidth;
+    const ttW = 260;
+    let left = x + 14;
+    if (left + ttW > winW) left = x - ttW - 14;
+    
+    tooltip.style.left = left + 'px';
     tooltip.style.top  = (y + 14) + 'px';
     tooltip.classList.add('visible');
 }
 
 function hideTooltip() {
-    hideTimer = setTimeout(() => tooltip.classList.remove('visible'), 80);
+    if (isPinned) return;
+    hideTimer = setTimeout(() => tooltip.classList.remove('visible'), 200);
 }
 
+function pinTooltip() {
+    if (!tooltip.classList.contains('visible')) return;
+    isPinned = true;
+    tooltip.classList.add('pinned');
+}
+
+function unpinTooltip(e) {
+    if (e) e.stopPropagation();
+    isPinned = false;
+    tooltip.classList.remove('pinned');
+    hideTooltip();
+}
+
+ttClose.addEventListener('click', unpinTooltip);
+
 document.addEventListener('mousemove', e => {
-    if (tooltip.classList.contains('visible')) {
-        tooltip.style.left = (e.clientX + 14) + 'px';
+    if (tooltip.classList.contains('visible') && !isPinned) {
+        const winW = window.innerWidth;
+        let left = e.clientX + 14;
+        if (left + 260 > winW) left = e.clientX - 260 - 14;
+        tooltip.style.left = left + 'px';
         tooltip.style.top  = (e.clientY + 14) + 'px';
     }
 });
 
-// ── Style injection after render ──
+// ── Style nodes ──
 function styleNodes(svgEl) {
-    // Node rects / polygons / circles
     svgEl.querySelectorAll('.node rect, .node circle, .node polygon, .node path').forEach(el => {
-        el.style.fill   = '#1a1e2e';
+        el.style.fill   = '#080a10';
         el.style.stroke = '#4facfe';
         el.style.strokeWidth = '1.5px';
-        el.style.filter = 'drop-shadow(0 0 5px rgba(79,172,254,0.3))';
         if (el.tagName === 'rect') { el.setAttribute('rx', '8'); el.setAttribute('ry', '8'); }
     });
-    // Edge lines / paths
     svgEl.querySelectorAll('.edgePath path').forEach(el => {
-        el.style.stroke = '#4facfe';
-        el.style.strokeWidth = '1.5px';
-        el.style.opacity = '0.7';
+        el.style.stroke = '#1e2a3a';
+        el.style.strokeWidth = '2px';
     });
-    // Arrowheads
-    svgEl.querySelectorAll('marker path').forEach(el => {
-        el.style.fill = '#4facfe';
-    });
-    // Edge labels — solid background so they sit clearly above lines
-    svgEl.querySelectorAll('.edgeLabel rect').forEach(el => {
-        el.style.fill        = '#13161f';
-        el.style.stroke      = '#2a3a5a';
-        el.style.strokeWidth = '1px';
-        el.style.opacity     = '1';
-    });
-    svgEl.querySelectorAll('.edgeLabel span, .edgeLabel p').forEach(el => {
-        el.style.color       = '#93c5fd';
-        el.style.background  = '#13161f';
-        el.style.padding     = '1px 4px';
-        el.style.borderRadius = '3px';
-        el.style.fontSize    = '0.7rem';
-    });
-    // Subgraph containers
+    svgEl.querySelectorAll('marker path').forEach(el => { el.style.fill = '#1e2a3a'; });
     svgEl.querySelectorAll('.cluster rect').forEach(el => {
-        el.style.fill   = 'rgba(79,172,254,0.04)';
-        el.style.stroke = '#2a3a5a';
+        el.style.fill   = 'rgba(79,172,254,0.02)';
+        el.style.stroke = '#1e2a3a';
         el.style.strokeWidth = '1px';
-        if (el.tagName === 'rect') { el.setAttribute('rx', '10'); el.setAttribute('ry', '10'); }
+        if (el.tagName === 'rect') { el.setAttribute('rx', '12'); el.setAttribute('ry', '12'); }
     });
-    // Sequence diagram actors
     svgEl.querySelectorAll('.actor').forEach(el => {
-        el.style.fill   = '#1a1e2e';
+        el.style.fill   = '#080a10';
         el.style.stroke = '#4facfe';
     });
 }
 
-// ── Attach hover listeners ──
+// ── Hover Attach ──
 function attachHover(svgEl) {
     svgEl.querySelectorAll('.node, .actor, .label').forEach(node => {
-        node.style.cursor = 'default';
-
+        node.style.cursor = 'pointer';
+        
         node.addEventListener('mouseenter', e => {
-            const txt = node.textContent;
-            const data = lookupNode(txt);
+            const data = lookupNode(node.textContent);
             if (data) showTooltip(e.clientX, e.clientY, data);
-            // Glow on hover
-            node.querySelectorAll('rect,circle,polygon,path').forEach(el => {
-                el.style.filter = 'drop-shadow(0 0 10px rgba(79,172,254,0.7))';
-                el.style.stroke = '#00f2fe';
-            });
+            
+            if (!isPinned || (isPinned && ttTitle.textContent === data?.title)) {
+                node.querySelectorAll('rect,circle,polygon,path').forEach(el => {
+                    el.style.stroke = '#00f2fe';
+                    el.style.filter = 'drop-shadow(0 0 10px rgba(0,242,254,0.5))';
+                });
+            }
         });
 
         node.addEventListener('mouseleave', () => {
             hideTooltip();
             node.querySelectorAll('rect,circle,polygon,path').forEach(el => {
-                el.style.filter = 'drop-shadow(0 0 5px rgba(79,172,254,0.3))';
                 el.style.stroke = '#4facfe';
+                el.style.filter = 'none';
             });
+        });
+        
+        node.addEventListener('click', e => {
+            const data = lookupNode(node.textContent);
+            if (data) pinTooltip();
         });
     });
 }
 
-// ── Render all diagrams ──
-async function renderAll() {
-    const targets = document.querySelectorAll('[id^="render-"]');
-    for (let i = 0; i < targets.length; i++) {
-        const target = targets[i];
-        const box    = target.closest('.diagram-box');
-        const src    = box.querySelector('.mermaid-src');
-        const id     = `mg-${i+1}`;
-        try {
-            const { svg } = await mermaid.render(id, src.textContent.trim());
-            target.innerHTML = svg;
-            const svgEl = target.querySelector('svg');
-            if (svgEl) {
-                svgEl.removeAttribute('height');
-                svgEl.style.width = '100%';
-                svgEl.style.height = 'auto';
-                styleNodes(svgEl);
-                attachHover(svgEl);
-            }
-        } catch(e) {
-            target.innerHTML = `<p style="color:#f87171;padding:16px">Render error: ${e.message}</p>`;
+// ── Render on Scroll (IntersectionObserver) ──
+const renderQueue = new Set();
+let isRendering = false;
+
+async function processRenderQueue() {
+    if (isRendering || renderQueue.size === 0) return;
+    isRendering = true;
+    
+    const target = Array.from(renderQueue)[0];
+    renderQueue.delete(target);
+    
+    const box    = target.closest('.diagram-box');
+    const src    = box.querySelector('.mermaid-src');
+    const skel   = box.querySelector('.skeleton');
+    const id     = `mg-${Math.random().toString(36).substr(2, 9)}`;
+    
+    try {
+        const { svg } = await mermaid.render(id, src.textContent.trim());
+        target.innerHTML = svg;
+        if(skel) skel.style.display = 'none';
+        
+        const svgEl = target.querySelector('svg');
+        if (svgEl) {
+            svgEl.removeAttribute('height');
+            styleNodes(svgEl);
+            attachHover(svgEl);
         }
+    } catch(e) {
+        if(skel) skel.style.display = 'none';
+        target.innerHTML = `<p style="color:#f87171;padding:16px">Render error: ${e.message}</p>`;
     }
+    
+    isRendering = false;
+    processRenderQueue(); // Process next
 }
 
-// ── Scrollspy ──
-const mainEl = document.getElementById('main-scroll');
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            const renderTarget = entry.target.querySelector('.mermaid-target');
+            if (renderTarget && !renderTarget.hasChildNodes() && !renderQueue.has(renderTarget)) {
+                renderQueue.add(renderTarget);
+                processRenderQueue();
+            }
+        }
+    });
+}, { threshold: 0.1, rootMargin: "0px 0px 200px 0px" });
+
+document.querySelectorAll('.diagram-section').forEach(sec => observer.observe(sec));
+
+// ── Navigation & Scrollspy ──
+const mainEl = document.getElementById('main-content');
 const sections = document.querySelectorAll('.diagram-section');
 const navLinks = document.querySelectorAll('.nav-link');
-mainEl.addEventListener('scroll', () => {
-    let current = '';
-    sections.forEach(s => { if (mainEl.scrollTop + 120 >= s.offsetTop) current = s.id; });
-    navLinks.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + current));
+const navInd = document.getElementById('nav-indicator');
+
+// Smooth scroll links
+navLinks.forEach(link => {
+    link.addEventListener('click', e => {
+        e.preventDefault();
+        const targetId = link.getAttribute('href').substring(1);
+        const targetSec = document.getElementById(targetId);
+        if (targetSec) {
+            targetSec.scrollIntoView({ behavior: 'smooth' });
+        }
+        if (window.innerWidth <= 768) toggleMobileMenu(); // close menu on mobile click
+    });
 });
 
+mainEl.addEventListener('scroll', () => {
+    let currentIdx = 0;
+    
+    sections.forEach((s, i) => {
+        if (s.offsetTop - mainEl.scrollTop <= 200) {
+            currentIdx = i;
+        }
+    });
+    
+    // Catch-all: if scrolled to the very bottom, activate the last section
+    if (mainEl.scrollTop + mainEl.clientHeight >= mainEl.scrollHeight - 10) {
+        currentIdx = sections.length - 1;
+    }
+    
+    navLinks.forEach((l, i) => {
+        if (i === currentIdx) {
+            l.classList.add('active');
+            navInd.style.transform = `translateY(${l.offsetTop}px)`;
+            navInd.style.height = `${l.offsetHeight}px`;
+        } else {
+            l.classList.remove('active');
+        }
+    });
+});
 
+// ── Mobile Menu ──
+const mobileToggle = document.getElementById('mobile-toggle');
+const sidebar = document.getElementById('sidebar');
+const overlay = document.getElementById('sidebar-overlay');
 
-window.addEventListener('load', renderAll);
+function toggleMobileMenu() {
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('open');
+}
+mobileToggle.addEventListener('click', toggleMobileMenu);
+overlay.addEventListener('click', toggleMobileMenu);
+
+// ── Actions: Copy & Fullscreen ──
+document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const srcId = btn.getAttribute('data-target');
+        const text = document.getElementById(srcId).textContent.trim();
+        navigator.clipboard.writeText(text);
+        const orig = btn.innerHTML;
+        btn.innerHTML = '✅ Copied!';
+        setTimeout(() => btn.innerHTML = orig, 2000);
+    });
+});
+
+const fsModal = document.getElementById('fs-modal');
+const fsTarget = document.getElementById('fs-target');
+const fsClose = document.getElementById('fs-close');
+
+document.querySelectorAll('.fs-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const renderId = btn.getAttribute('data-target');
+        const svg = document.getElementById(renderId).innerHTML;
+        fsTarget.innerHTML = svg;
+        fsModal.classList.add('active');
+    });
+});
+
+fsClose.addEventListener('click', () => fsModal.classList.remove('active'));
+fsModal.addEventListener('click', e => {
+    if (e.target === fsModal) fsModal.classList.remove('active');
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') fsModal.classList.remove('active');
+});
+
+// Trigger initial scroll eval
+setTimeout(() => mainEl.dispatchEvent(new Event('scroll')), 100);
+
 </script>
 </body>
 </html>
