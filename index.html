@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Motor System - Architecture Diagrams</title>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+        :root {
+            --bg-dark: #0b0d14;
+            --bg-panel: #13161f;
+            --bg-card: #1a1e2e;
+            --accent: #4facfe;
+            --accent-glow: rgba(79,172,254,0.25);
+            --text-main: #e2e8f0;
+            --text-muted: #64748b;
+            --border: #1e2a3a;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-main);
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* ── Sidebar ── */
+        .sidebar {
+            width: 260px;
+            min-width: 260px;
+            background: var(--bg-panel);
+            border-right: 1px solid var(--border);
+            padding: 28px 0;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-brand {
+            padding: 0 22px 24px;
+            border-bottom: 1px solid var(--border);
+        }
+        .sidebar-brand h2 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--accent);
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .sidebar-brand p {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+        .nav-list { padding: 16px 0; }
+        .nav-link {
+            display: block;
+            padding: 9px 22px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            border-left: 3px solid transparent;
+            transition: all 0.18s ease;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: var(--text-main);
+            background: rgba(79,172,254,0.07);
+            border-left-color: var(--accent);
+        }
+
+        /* ── Main Content ── */
+        .main {
+            flex: 1;
+            padding: 48px 52px;
+            overflow-y: auto;
+        }
+        .page-header { margin-bottom: 48px; }
+        .page-header h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            background: linear-gradient(90deg, #4facfe, #00f2fe);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+        }
+        .page-header p {
+            color: var(--text-muted);
+            margin-top: 8px;
+            font-size: 0.9rem;
+        }
+
+        /* ── Diagram Section ── */
+        .diagram-section { margin-bottom: 64px; }
+        .diagram-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 18px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--border);
+        }
+        .diagram-header h3 {
+            font-size: 1.15rem;
+            font-weight: 500;
+        }
+
+
+        /* ── Diagram Box ── */
+        .diagram-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 28px 20px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+            overflow: visible; /* no scroll trapping */
+            width: 100%;
+        }
+        /* Make mermaid SVGs fill naturally */
+        .diagram-box svg {
+            width: 100% !important;
+            height: auto !important;
+            display: block;
+        }
+
+        /* ── Mermaid Node Style Overrides ── */
+        .mermaid-target { width: 100%; }
+
+        /* Edge label boxes */
+        .edgeLabel { background: transparent !important; }
+        .edgeLabel rect {
+            fill: #13161f !important;
+            stroke: #2a3a5a !important;
+            stroke-width: 1px !important;
+            opacity: 1 !important;
+            rx: 4px !important;
+        }
+        .edgeLabel span, .edgeLabel p {
+            background: #13161f !important;
+            color: #93c5fd !important;
+            font-size: 0.7rem !important;
+            font-family: 'Inter', sans-serif !important;
+            padding: 1px 4px !important;
+            border-radius: 3px !important;
+        }
+
+        /* ── Hover Tooltip ── */
+        #tooltip {
+            position: fixed;
+            z-index: 9999;
+            pointer-events: none;
+            background: #13161f;
+            border: 1px solid var(--accent);
+            border-left: 3px solid var(--accent);
+            border-radius: 8px;
+            padding: 10px 14px;
+            width: 220px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 12px var(--accent-glow);
+            opacity: 0;
+            transition: opacity 0.15s ease;
+            font-size: 0.8rem;
+        }
+        #tooltip.visible { opacity: 1; }
+        #tooltip h4 {
+            color: var(--accent);
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+        }
+        #tooltip .spec-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            color: var(--text-muted);
+            gap: 8px;
+        }
+        #tooltip .spec-row:last-child { border: none; }
+        #tooltip .spec-row strong { color: var(--text-main); white-space: nowrap; }
+        #tooltip .spec-row span { text-align: right; }
+    </style>
+</head>
+<body>
+
+<!-- Floating Tooltip -->
+<div id="tooltip"></div>
+
+<!-- Sidebar -->
+<nav class="sidebar">
+    <div class="sidebar-brand">
+        <h2>Smart Motor System</h2>
+        <p>Architecture Documentation</p>
+    </div>
+    <div class="nav-list">
+        <a class="nav-link" href="#sys-arch">1. System Architecture</a>
+        <a class="nav-link" href="#data-flow">2. Data Flow</a>
+        <a class="nav-link" href="#hw-wiring">3. Hardware Wiring</a>
+        <a class="nav-link" href="#firmware">4. Firmware Tasks</a>
+        <a class="nav-link" href="#protection">5. Protection Flow</a>
+        <a class="nav-link" href="#ml-pipe">6. ML Pipeline</a>
+        <a class="nav-link" href="#db-schema">7. Database Schema</a>
+        <a class="nav-link" href="#frontend">8. Frontend Architecture</a>
+    </div>
+</nav>
+
+<!-- Main -->
+<main class="main" id="main-scroll">
+    <div class="page-header">
+        <h1>Architecture Diagrams</h1>
+        <p>Hover over diagram nodes to see technical details. Scroll freely through all diagrams.</p>
+    </div>
+
+    <section id="sys-arch" class="diagram-section">
+        <div class="diagram-header">
+            <h3>1. High-Level System Architecture</h3>
+        </div>
+        <div class="diagram-box" id="box-1">
+            <div class="mermaid-src" style="display:none">
+graph TB
+    subgraph EDGE["Edge Layer - ESP32"]
+        PZEM["PZEM-004T"] --> ESP["ESP32-WROOM-32"]
+        DS18["DS18B20"] --> ESP
+        ADXL["ADXL345"] --> ESP
+        HALL["Hall Sensor"] --> ESP
+        ESP --> RELAY["Relay"]
+        ESP --> BUZZER["Buzzer"]
+        ESP --> TFT["TFT Display"]
+    end
+    subgraph CLOUD["Cloud - Render.com"]
+        API["FastAPI Backend"] --> ML["ML Pipeline"]
+        API --> WORKER["Background Tasks"]
+    end
+    subgraph DB["Database - Neon"]
+        PG["PostgreSQL 16"]
+    end
+    subgraph FRONT["Frontend - Vercel"]
+        RCT["React 19 Dashboard"]
+    end
+    subgraph AI["AI Providers"]
+        MST["Mistral AI"]
+        GEM["Google Gemini"]
+        GRQ["Groq"]
+    end
+    ESP --"HTTPS / MQTT"--> API
+    API --"asyncpg SSL"--> PG
+    RCT --"REST API"--> API
+    ML --"Fallback Chain"--> MST
+            </div>
+            <div class="mermaid-target" id="render-1"></div>
+        </div>
+    </section>
+
+    <section id="data-flow" class="diagram-section">
+        <div class="diagram-header">
+            <h3>2. Data Flow: ESP32 → Render → Neon → Vercel</h3>
+        </div>
+        <div class="diagram-box" id="box-2">
+            <div class="mermaid-src" style="display:none">
+sequenceDiagram
+    participant ESP as ESP32 (Edge)
+    participant RND as Render.com (FastAPI)
+    participant NEO as Neon (PostgreSQL)
+    participant WKR as Background Worker
+    participant VRC as Vercel (React)
+    participant OMA as Open-Meteo API
+    Note over ESP: Every 5 seconds
+    ESP->>RND: POST /data {SensorPayload}
+    RND->>NEO: SELECT last fault state
+    RND->>OMA: GET ambient temp (if t2 == 0)
+    OMA-->>RND: temperature_2m
+    RND->>NEO: INSERT sensor_readings
+    RND->>NEO: INSERT/UPDATE fault_logs
+    RND->>WKR: enqueue_prediction_job()
+    RND-->>ESP: {ok: true}
+    Note over WKR: Async ML Pipeline
+    WKR->>NEO: SELECT 72h history
+    WKR->>WKR: Run ML Pipeline
+    WKR->>NEO: INSERT predictions
+    Note over VRC: User Dashboard
+    VRC->>RND: GET /data/{device_id}
+    RND-->>VRC: JSON response
+    VRC->>RND: POST /ai/analyze/{id}
+    RND-->>VRC: AI commentary
+            </div>
+            <div class="mermaid-target" id="render-2"></div>
+        </div>
+    </section>
+
+    <section id="hw-wiring" class="diagram-section">
+        <div class="diagram-header">
+            <h3>3. Hardware Wiring Diagram</h3>
+        </div>
+        <div class="diagram-box" id="box-3">
+            <div class="mermaid-src" style="display:none">
+graph LR
+    MAINS["230V AC Mains"] --> RLY["Relay (GPIO26)"]
+    RLY --> MTR["Induction Motor"]
+    MTR --> PZ["PZEM-004T"]
+    PZ -->|"UART2 GPIO17/16"| CPU["ESP32-WROOM-32"]
+    DS["DS18B20"] -->|"1-Wire"| CPU
+    AX["ADXL345"] -->|"I2C SDA/SCL"| CPU
+    HS["Hall Sensor"] -->|"GPIO Interrupt"| CPU
+    CPU -->|"Active Low"| RLY
+    CPU -->|"GPIO27"| BUZ["Buzzer"]
+    CPU -->|"SPI"| TFT["TFT LCD"]
+            </div>
+            <div class="mermaid-target" id="render-3"></div>
+        </div>
+    </section>
+
+    <section id="firmware" class="diagram-section">
+        <div class="diagram-header">
+            <h3>4. ESP32 Firmware Task Architecture (FreeRTOS)</h3>
+        </div>
+        <div class="diagram-box" id="box-4">
+            <div class="mermaid-src" style="display:none">
+graph TB
+    subgraph TASKS["FreeRTOS Tasks"]
+        T1["sensor_data P4"]
+        T2["http_server P3"]
+        T3["vercel_relay P2"]
+        T4["railway_relay P2"]
+        T5["mqtt_relay P2"]
+        T6["tft_display P3"]
+        T7["wifi_app P1"]
+        T8["pzemTask"]
+    end
+    subgraph SHARED["Shared State - Mutex + Spinlock"]
+        GD["g_sensorData struct"]
+        PS["Fault Flags + Protection Config"]
+    end
+    T1 --> GD
+    T1 --> PS
+    T3 --> GD
+    T4 --> GD
+    T5 --> GD
+    T6 --> GD
+    T8 --> GD
+            </div>
+            <div class="mermaid-target" id="render-4"></div>
+        </div>
+    </section>
+
+    <section id="protection" class="diagram-section">
+        <div class="diagram-header">
+            <h3>5. Motor Protection Signal Flow</h3>
+        </div>
+        <div class="diagram-box" id="box-5">
+            <div class="mermaid-src" style="display:none">
+flowchart TD
+    READ["Read Sensor Data"] --> GRACE{"Startup Grace?"}
+    GRACE -->|Yes| SUPPRESS["Suppress faults"]
+    GRACE -->|No| CHECK["Evaluate Raw Faults"]
+    SUPPRESS --> CHECK
+    CHECK --> OC{"Current gt max?"}
+    CHECK --> OT{"Temp gt max 3x?"}
+    CHECK --> ST{"RPM lt min and I gt stall?"}
+    CHECK --> VIB{"Vibration gte threshold?"}
+    CHECK --> OV{"Voltage gt max?"}
+    CHECK --> UV{"Voltage lt min?"}
+    OC --> LATCH["Latch Fault Flags portMUX"]
+    OT --> LATCH
+    ST --> LATCH
+    VIB --> LATCH
+    OV --> LATCH
+    UV --> LATCH
+    LATCH --> NVS["Persist to NVS Flash"]
+    NVS --> COUNT{"fault_count gte trip?"}
+    COUNT -->|Yes| TRIP["Relay OFF - Motor Stopped"]
+    COUNT -->|No| CONT["Continue Running"]
+            </div>
+            <div class="mermaid-target" id="render-5"></div>
+        </div>
+    </section>
+
+    <section id="ml-pipe" class="diagram-section">
+        <div class="diagram-header">
+            <h3>6. ML Prediction Pipeline</h3>
+        </div>
+        <div class="diagram-box" id="box-6">
+            <div class="mermaid-src" style="display:none">
+flowchart TD
+    IN["Sensor Payload Received"] --> DISP["enqueue_prediction_job"]
+    DISP --> MODE{"PREDICTION_MODE"}
+    MODE -->|basic| T1["Tier 1 Rule-Based - Overheating / Stall / Bearing"]
+    MODE -->|ml| T2["Tier 2 sklearn ML - Isolation Forest, LinReg, Poly"]
+    MODE -->|advanced| T4["Tier 4 Advanced ML - IF, OCSVM, RF, NASA BHI, RUL"]
+    T1 --> STORE["INSERT INTO predictions"]
+    T2 --> STORE
+    T4 --> STORE
+    STORE --> AI["POST /ai/analyze"]
+    AI --> M1{"Mistral AI"}
+    M1 -->|Fail| M2{"Google Gemini"}
+    M2 -->|Fail| M3{"Groq"}
+    M1 --> OUT["Expert Commentary / RUL JSON"]
+    M2 --> OUT
+    M3 --> OUT
+            </div>
+            <div class="mermaid-target" id="render-6"></div>
+        </div>
+    </section>
+
+    <section id="db-schema" class="diagram-section">
+        <div class="diagram-header">
+            <h3>7. Database Schema (Neon PostgreSQL)</h3>
+        </div>
+        <div class="diagram-box" id="box-7">
+            <div class="mermaid-src" style="display:none">
+erDiagram
+    devices ||--o{ sensor_readings : "generates"
+    devices ||--o{ predictions : "has"
+    devices ||--o{ fault_logs : "has"
+    devices ||--o{ commands : "receives"
+    devices {
+        TEXT id PK
+        BOOLEAN is_active
+        TIMESTAMPTZ last_seen_at
+        TEXT location
+    }
+    sensor_readings {
+        BIGSERIAL id PK
+        TEXT device_id FK
+        TIMESTAMPTZ ts
+        FLOAT voltage
+        FLOAT current
+        FLOAT temp1
+        BOOLEAN fault_overcurrent
+    }
+    predictions {
+        BIGSERIAL id PK
+        TEXT prediction_type
+        FLOAT confidence
+        TEXT severity
+    }
+    fault_logs {
+        SERIAL id PK
+        TEXT fault_type
+        TEXT status
+        TIMESTAMPTZ detected_at
+    }
+    commands {
+        SERIAL id PK
+        TEXT command
+        TEXT status
+    }
+            </div>
+            <div class="mermaid-target" id="render-7"></div>
+        </div>
+    </section>
+
+    <section id="frontend" class="diagram-section">
+        <div class="diagram-header">
+            <h3>8. Frontend Dashboard Architecture (React)</h3>
+        </div>
+        <div class="diagram-box" id="box-8">
+            <div class="mermaid-src" style="display:none">
+graph TB
+    APP["App.jsx Auth Guard"] --> HOME["Home.jsx Device List"]
+    HOME --> DEV["DeviceLayout.jsx Tab Shell"]
+    DEV --> OV["Overview.jsx"]
+    DEV --> PW["PowerPage.jsx"]
+    DEV --> TP["TemperaturePage.jsx"]
+    DEV --> VB["VibrationPage.jsx"]
+    DEV --> FP["FaultsPage.jsx"]
+    DEV --> AI["AIPage.jsx"]
+    DEV --> ST["SettingsPage.jsx"]
+    DEV --> TM["TerminalPage.jsx"]
+            </div>
+            <div class="mermaid-target" id="render-8"></div>
+        </div>
+    </section>
+
+    <div style="height:80px"></div>
+</main>
+
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+
+mermaid.initialize({
+    startOnLoad: false,
+    theme: 'dark',
+    flowchart: { curve: 'basis', useMaxWidth: true },
+    sequence: { showSequenceNumbers: true, useMaxWidth: true },
+    er: { useMaxWidth: true },
+    securityLevel: 'loose'
+});
+
+// ── Node Knowledge Base ──
+const KB = {
+    'PZEM-004T':          { desc:'Electrical power measurement module', specs:{ Interface:'UART2 (GPIO17/16)', Voltage:'80–260V AC', Current:'0–100A', Metrics:'Power, Energy, PF, Hz' } },
+    'DS18B20':            { desc:'Digital motor temperature sensor', specs:{ Protocol:'1-Wire', Range:'-55 to +125°C', Resolution:'0.0625°C' } },
+    'ADXL345':            { desc:'3-axis accelerometer + tap detection', specs:{ Protocol:'I2C (SDA/SCL)', Range:'±16g', Resolution:'3.9 mg/LSB', Feature:'Tap Detection' } },
+    'Hall Sensor':        { desc:'RPM measurement via magnetic pulses', specs:{ Output:'GPIO Interrupt', Measurement:'Pulse-counted RPM' } },
+    'ESP32-WROOM-32':     { desc:'Main edge microcontroller', specs:{ Core:'Dual Xtensa LX6', Clock:'240 MHz', Flash:'4MB', RAM:'520KB', OS:'FreeRTOS' } },
+    'Relay':              { desc:'Motor power switch', specs:{ GPIO:'GPIO26', Logic:'Active Low', Type:'Electromechanical' } },
+    'FastAPI Backend':    { desc:'Cloud REST API server on Render.com', specs:{ Framework:'FastAPI (Python)', Server:'Uvicorn (ASGI)', Hosting:'Render.com' } },
+    'PostgreSQL 16':      { desc:'Managed cloud database', specs:{ Provider:'Neon.tech', Driver:'asyncpg', Security:'SSL Required', Pool:'size=5, recycle=300s' } },
+    'Mistral AI':         { desc:'Primary generative AI provider', specs:{ Model:'mistral-small', Role:'Expert diagnostics', Fallback:'2nd → Gemini' } },
+    'Google Gemini':      { desc:'Secondary AI fallback provider', specs:{ Model:'gemini-2.0-flash', Trigger:'Mistral failure', Fallback:'3rd → Groq' } },
+    'Groq':               { desc:'Tertiary AI fallback provider', specs:{ Model:'llama-3.3-70b-versatile', Trigger:'Gemini failure' } },
+    'React 19 Dashboard': { desc:'Frontend SPA on Vercel', specs:{ Framework:'React 19 + Vite 8', Hosting:'Vercel', Charts:'Chart.js', Icons:'Lucide React' } },
+    'Isolation Forest':   { desc:'Sklearn anomaly detection model', specs:{ Library:'sklearn.ensemble', contamination:'0.1', seed:'42', Tier:'Tier 2 ML' } },
+    'NASA BHI':           { desc:'NASA Bearing Health Index calculation', specs:{ Metrics:'RMS, Crest Factor, Kurtosis, FFT', Library:'scipy.stats + numpy.fft', Tier:'Tier 4 Advanced ML' } },
+};
+
+function lookupNode(text) {
+    const clean = text.replace(/[⚙️☁️🗄️🖥️🤖\n]/g, '').trim();
+    if (KB[clean]) return { title: clean, ...KB[clean] };
+    const key = Object.keys(KB).find(k => clean.includes(k));
+    if (key) return { title: key, ...KB[key] };
+    return null;
+}
+
+// ── Tooltip ──
+const tooltip = document.getElementById('tooltip');
+let hideTimer;
+
+function showTooltip(x, y, data) {
+    clearTimeout(hideTimer);
+    let html = `<h4>${data.title}</h4><p style="color:#64748b;font-size:0.75rem;margin-bottom:6px">${data.desc}</p>`;
+    for (const [k, v] of Object.entries(data.specs)) {
+        html += `<div class="spec-row"><strong>${k}</strong><span>${v}</span></div>`;
+    }
+    tooltip.innerHTML = html;
+    tooltip.style.left = (x + 14) + 'px';
+    tooltip.style.top  = (y + 14) + 'px';
+    tooltip.classList.add('visible');
+}
+
+function hideTooltip() {
+    hideTimer = setTimeout(() => tooltip.classList.remove('visible'), 80);
+}
+
+document.addEventListener('mousemove', e => {
+    if (tooltip.classList.contains('visible')) {
+        tooltip.style.left = (e.clientX + 14) + 'px';
+        tooltip.style.top  = (e.clientY + 14) + 'px';
+    }
+});
+
+// ── Style injection after render ──
+function styleNodes(svgEl) {
+    // Node rects / polygons / circles
+    svgEl.querySelectorAll('.node rect, .node circle, .node polygon, .node path').forEach(el => {
+        el.style.fill   = '#1a1e2e';
+        el.style.stroke = '#4facfe';
+        el.style.strokeWidth = '1.5px';
+        el.style.filter = 'drop-shadow(0 0 5px rgba(79,172,254,0.3))';
+        if (el.tagName === 'rect') { el.setAttribute('rx', '8'); el.setAttribute('ry', '8'); }
+    });
+    // Edge lines / paths
+    svgEl.querySelectorAll('.edgePath path').forEach(el => {
+        el.style.stroke = '#4facfe';
+        el.style.strokeWidth = '1.5px';
+        el.style.opacity = '0.7';
+    });
+    // Arrowheads
+    svgEl.querySelectorAll('marker path').forEach(el => {
+        el.style.fill = '#4facfe';
+    });
+    // Edge labels — solid background so they sit clearly above lines
+    svgEl.querySelectorAll('.edgeLabel rect').forEach(el => {
+        el.style.fill        = '#13161f';
+        el.style.stroke      = '#2a3a5a';
+        el.style.strokeWidth = '1px';
+        el.style.opacity     = '1';
+    });
+    svgEl.querySelectorAll('.edgeLabel span, .edgeLabel p').forEach(el => {
+        el.style.color       = '#93c5fd';
+        el.style.background  = '#13161f';
+        el.style.padding     = '1px 4px';
+        el.style.borderRadius = '3px';
+        el.style.fontSize    = '0.7rem';
+    });
+    // Subgraph containers
+    svgEl.querySelectorAll('.cluster rect').forEach(el => {
+        el.style.fill   = 'rgba(79,172,254,0.04)';
+        el.style.stroke = '#2a3a5a';
+        el.style.strokeWidth = '1px';
+        if (el.tagName === 'rect') { el.setAttribute('rx', '10'); el.setAttribute('ry', '10'); }
+    });
+    // Sequence diagram actors
+    svgEl.querySelectorAll('.actor').forEach(el => {
+        el.style.fill   = '#1a1e2e';
+        el.style.stroke = '#4facfe';
+    });
+}
+
+// ── Attach hover listeners ──
+function attachHover(svgEl) {
+    svgEl.querySelectorAll('.node, .actor, .label').forEach(node => {
+        node.style.cursor = 'default';
+
+        node.addEventListener('mouseenter', e => {
+            const txt = node.textContent;
+            const data = lookupNode(txt);
+            if (data) showTooltip(e.clientX, e.clientY, data);
+            // Glow on hover
+            node.querySelectorAll('rect,circle,polygon,path').forEach(el => {
+                el.style.filter = 'drop-shadow(0 0 10px rgba(79,172,254,0.7))';
+                el.style.stroke = '#00f2fe';
+            });
+        });
+
+        node.addEventListener('mouseleave', () => {
+            hideTooltip();
+            node.querySelectorAll('rect,circle,polygon,path').forEach(el => {
+                el.style.filter = 'drop-shadow(0 0 5px rgba(79,172,254,0.3))';
+                el.style.stroke = '#4facfe';
+            });
+        });
+    });
+}
+
+// ── Render all diagrams ──
+async function renderAll() {
+    const targets = document.querySelectorAll('[id^="render-"]');
+    for (let i = 0; i < targets.length; i++) {
+        const target = targets[i];
+        const box    = target.closest('.diagram-box');
+        const src    = box.querySelector('.mermaid-src');
+        const id     = `mg-${i+1}`;
+        try {
+            const { svg } = await mermaid.render(id, src.textContent.trim());
+            target.innerHTML = svg;
+            const svgEl = target.querySelector('svg');
+            if (svgEl) {
+                svgEl.removeAttribute('height');
+                svgEl.style.width = '100%';
+                svgEl.style.height = 'auto';
+                styleNodes(svgEl);
+                attachHover(svgEl);
+            }
+        } catch(e) {
+            target.innerHTML = `<p style="color:#f87171;padding:16px">Render error: ${e.message}</p>`;
+        }
+    }
+}
+
+// ── Scrollspy ──
+const mainEl = document.getElementById('main-scroll');
+const sections = document.querySelectorAll('.diagram-section');
+const navLinks = document.querySelectorAll('.nav-link');
+mainEl.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(s => { if (mainEl.scrollTop + 120 >= s.offsetTop) current = s.id; });
+    navLinks.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + current));
+});
+
+
+
+window.addEventListener('load', renderAll);
+</script>
+</body>
+</html>
